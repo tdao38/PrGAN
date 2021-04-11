@@ -19,9 +19,9 @@ def create_folder(path):
     if os.path.exists(path):
         return
     else:
-        print "Folder {} not found. Creating one...".format(path)
+        print ("Folder {} not found. Creating one...".format(path))
         os.makedirs(path)
-        print "Done."
+        print( "Done.")
 
 class VoxelGAN:
 
@@ -98,15 +98,15 @@ class VoxelGAN:
         ckpt_folder = "checkpoint"
         ckpt = tf.train.get_checkpoint_state(os.path.join(ckpt_folder, "VoxelGAN"+self.dataset_name))
         if ckpt and ckpt.model_checkpoint_path:
-            print "Loading previous model..."
+            print ("Loading previous model...")
             self.saver.restore(self.session, ckpt.model_checkpoint_path)
-            print "Done."
+            print ("Done.")
         else:
-            print "No saved model found."
+            print ("No saved model found.")
 
     def train(self):
         if not os.path.exists(os.path.join("data", self.dataset_name)):
-            print "No GAN training files found. Training aborted. =("
+            print( "No GAN training files found. Training aborted. =(")
             return
 
         dataset_files = glob.glob("data/"+self.dataset_name+"/*.npy")
@@ -147,15 +147,15 @@ class VoxelGAN:
                 #if train_discriminator is False and train_generator is False:
                 #    train_generator = train_discriminator = True
 
-                print "EPOCH[{}], BATCH[{}/{}]".format(epoch, batch_i, n_batches)
-                print "Discriminator avg acc: {}".format(dacc)
-                print "Discriminator real mean: {}".format(np.mean(dloss_real))
-                print "Discriminator fake mean: {}".format(np.mean(dloss_fake))
-                print "Generator Loss:{}".format(gloss)
+                print ("EPOCH[{}], BATCH[{}/{}]".format(epoch, batch_i, n_batches))
+                print ("Discriminator avg acc: {}".format(dacc))
+                print ("Discriminator real mean: {}".format(np.mean(dloss_real)))
+                print ("Discriminator fake mean: {}".format(np.mean(dloss_fake)))
+                print ("Generator Loss:{}".format(gloss))
 
                 # Update discriminator
                 if train_discriminator:
-                    print "***Discriminator trained.***"
+                    print ("***Discriminator trained.***")
                     self.session.run(self.D_optim, feed_dict={self.images: imgs_batch, self.z: batch_z, self.train_flag: True})
                 self.session.run(self.G_optim_classic, feed_dict={self.z: batch_z, self.images: imgs_batch, self.train_flag: True})
 
@@ -169,11 +169,11 @@ class VoxelGAN:
                     create_folder("results/VoxelGAN{}".format(self.dataset_name))
                     ops.save_voxels(voxels, "results/VoxelGAN{}".format(self.dataset_name))
 
-                    print "Saving checkpoint..."
+                    print ("Saving checkpoint...")
                     create_folder('checkpoint/VoxelGAN{}'.format(self.dataset_name))
                     self.saver.save(self.session, 'checkpoint/VoxelGAN{}/model.ckpt'.format(self.dataset_name),
                                     global_step=training_step)
-                    print "***CHECKPOINT SAVED***"
+                    print ("***CHECKPOINT SAVED***")
                 training_step += 1
 
                 self.history["generator"].append(gloss)
@@ -228,7 +228,7 @@ class VoxelGAN:
                                       feed_dict={self.z: batch_z, self.train_flag: False})
             all_voxels.append(np.array(voxels))
         all_voxels = np.concatenate(all_voxels, axis=0)
-        print all_voxels.shape
+        print( all_voxels.shape)
         ops.save_voxels(all_voxels, "results/VoxelGAN{}".format(self.dataset_name))
 
 def main():

@@ -1,4 +1,5 @@
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
+import tensorflow
 import numpy as np
 import ops
 import glob
@@ -21,9 +22,9 @@ def create_folder(path):
     if os.path.exists(path):
         return
     else:
-        print "Folder {} not found. Creating one...".format(path)
+        print( "Folder {} not found. Creating one...".format(path))
         os.makedirs(path)
-        print "Done."
+        print ("Done.")
 
 class PrGAN:
 
@@ -47,9 +48,9 @@ class PrGAN:
         self.logpath = "log"
 
         self.g_bn0 = ops.BatchNormalization([self.d_size], 'g_bn0')
-        self.g_bn1 = ops.BatchNormalization([self.d_size/2], 'g_bn1')
-        self.g_bn2 = ops.BatchNormalization([self.d_size/4], 'g_bn2')
-        self.g_bn3 = ops.BatchNormalization([self.d_size/8], 'g_bn2')
+        self.g_bn1 = ops.BatchNormalization([self.d_size//2], 'g_bn1')
+        self.g_bn2 = ops.BatchNormalization([self.d_size//4], 'g_bn2')
+        self.g_bn3 = ops.BatchNormalization([self.d_size//8], 'g_bn2')
 
         self.d_bn0 = ops.BatchNormalization([self.d_size], 'd_bn0')
         self.d_bn1 = ops.BatchNormalization([self.d_size*2], 'd_bn1')
@@ -60,6 +61,7 @@ class PrGAN:
         self.history["generator"] = []
         self.history["discriminator_real"] = []
         self.history["discriminator_fake"] = []
+        tf.disable_eager_execution()
 
         with tf.variable_scope('gan'):
             self.images = tf.placeholder(tf.float32, shape=[batch_size, image_size[0], image_size[1], 1],
@@ -101,35 +103,45 @@ class PrGAN:
         ckpt_folder = "checkpoint"
         ckpt = tf.train.get_checkpoint_state(os.path.join(ckpt_folder, "PrGAN"+self.dataset_name))
         if ckpt and ckpt.model_checkpoint_path:
-            print "Loading previous model..."
+            print ("Loading previous model...")
             self.saver.restore(self.session, ckpt.model_checkpoint_path)
-            print "Done."
+            print ("Done.")
         else:
-            print "No saved model found."
+            print ("No saved model found.")
 
     def train(self):
         if not os.path.exists(os.path.join("data", self.dataset_name)):
-            print "No GAN training files found. Training aborted. =("
+            print( "No GAN training files found. Training aborted. =(")
             return
 
+
+        # importing datafiles
         dataset_files = glob.glob("data/"+self.dataset_name+"/*.png")
         dataset_files = np.array(dataset_files)
         n_files = dataset_files.shape[0]
+
+        # sample 201 numbers from uniform distribution
         sample_z = np.random.uniform(-1, 1, [self.batch_size, self.z_size])
         training_step = 0
 
         self.session.run(tf.initialize_all_variables())
         self.load()
-        for epoch in xrange(self.n_iterations):
-
+        for epoch in range(self.n_iterations):
+            # randomzied the file order
             rand_idxs = np.random.permutation(range(n_files))
+            # find the number of batches
             n_batches = n_files // self.batch_size
+            # batch size = 64
 
-            for batch_i in xrange(n_batches):
+            for batch_i in range(n_batches):
+                # iterate through the files
                 idxs_i = rand_idxs[batch_i * self.batch_size: (batch_i + 1) * self.batch_size]
+
+                # load image batch
                 imgs_batch = ops.load_imgbatch(dataset_files[idxs_i], color=False)
                 #imgs_batch = ops.load_voxelbatch(dataset_files[idxs_i])
                 batch_z = np.random.uniform(-1, 1, [self.batch_size, self.z_size])
+                # 64 x 201
 
                 dloss_fake = self.D_fake.eval(session=self.session, feed_dict={self.z: batch_z, self.train_flag: False})
                 dloss_real = self.D_real.eval(session=self.session, feed_dict={self.images: imgs_batch, self.train_flag: False})
@@ -150,15 +162,15 @@ class PrGAN:
                 #if train_discriminator is False and train_generator is False:
                 #    train_generator = train_discriminator = True
 
-                print "EPOCH[{}], BATCH[{}/{}]".format(epoch, batch_i, n_batches)
-                print "Discriminator avg acc: {}".format(dacc)
-                print "Discriminator real mean: {}".format(np.mean(dloss_real))
-                print "Discriminator fake mean: {}".format(np.mean(dloss_fake))
-                print "Generator Loss:{}".format(gloss)
+                print ("EPOCH[{}], BATCH[{}/{}]".format(epoch, batch_i, n_batches))
+                print( "Discriminator avg acc: {}".format(dacc))
+                print ("Discriminator real mean: {}".format(np.mean(dloss_real)))
+                print ("Discriminator fake mean: {}".format(np.mean(dloss_fake)))
+                print ("Generator Loss:{}".format(gloss))
 
                 # Update discriminator
                 if train_discriminator:
-                    print "***Discriminator trained.***"
+                    print ("***Discriminator trained.***")
                     self.session.run(self.D_optim, feed_dict={self.images: imgs_batch, self.z: batch_z, self.train_flag: True})
                 # Update generator
                 #if dacc > 0.9:
@@ -181,11 +193,11 @@ class PrGAN:
                     ops.save_images(imgs_batch, [8, 8], "sanity_chairs.png")
                     ops.save_voxels(voxels, "results/PrGAN{}".format(self.dataset_name))
 
-                    print "Saving checkpoint..."
+                    print ("Saving checkpoint...")
                     create_folder('checkpoint/PrGAN{}'.format(self.dataset_name))
                     self.saver.save(self.session, 'checkpoint/PrGAN{}/model.ckpt'.format(self.dataset_name),
                                     global_step=training_step)
-                    print "***CHECKPOINT SAVED***"
+                    print( "***CHECKPOINT SAVED***")
                 training_step += 1
 
                 self.history["generator"].append(gloss)
@@ -232,7 +244,7 @@ class PrGAN:
             v = z_enc[:, self.z_size-1]
 
             rendered_imgs = []
-            for i in xrange(self.batch_size):
+            for i in range(self.batch_size):
                 img = ops.project(ops.transform_volume(self.voxels[i], ops.rot_matrix(v[i])),
                         self.tau)
                 rendered_imgs.append(img)
@@ -246,7 +258,7 @@ class PrGAN:
         all_voxels = []
         all_imgs = []
         all_zs = []
-        for i in xrange(n_batches):
+        for i in range(n_batches):
             batch_z = np.random.uniform(-1, 1, [self.batch_size, self.z_size])
             all_zs.append(batch_z)
             voxels = self.voxels.eval(session=self.session,
@@ -258,7 +270,7 @@ class PrGAN:
         all_voxels = np.concatenate(all_voxels, axis=0)
         all_imgs = np.concatenate(all_imgs, axis=0)
         all_zs = np.vstack(all_zs)
-        print all_voxels.shape
+        print (all_voxels.shape)
         np.save("results/PrGAN{}".format(self.dataset_name), all_zs)
         ops.save_voxels(all_voxels, "results/PrGAN{}".format(self.dataset_name))
         ops.save_separate_images(all_imgs, "results/PrGAN{}".format(self.dataset_name))

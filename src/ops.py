@@ -1,4 +1,5 @@
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
+import tensorflow
 import matplotlib.image as mpimg
 import numpy as np
 import scipy.misc
@@ -7,7 +8,7 @@ import re
 
 class BatchNormalization(object):
     def __init__(self, shape, name, decay=0.9, epsilon=1e-5):
-        with tf.variable_scope(name):
+        with tf.compat.v1.variable_scope(name):
             self.beta = tf.Variable(tf.constant(0.0, shape=shape), name="beta") # offset
             self.gamma = tf.Variable(tf.constant(1.0, shape=shape), name="gamma") # scale
             self.ema = tf.train.ExponentialMovingAverage(decay=decay)
@@ -16,7 +17,7 @@ class BatchNormalization(object):
     def __call__(self, x, train):
         self.train = train
         n_axes = len(x.get_shape()) - 1
-        batch_mean, batch_var = tf.nn.moments(x, range(n_axes))
+        batch_mean, batch_var = tf.nn.moments(x, [0,1,2]) # range(n_axes)
         mean, variance = self.ema_mean_variance(batch_mean, batch_var)
         return tf.nn.batch_normalization(x, mean, variance, self.beta, self.gamma, self.epsilon)
 
@@ -305,7 +306,7 @@ def deconv3d(input_, output_shape,
         try:
             deconv = tf.nn.conv3d_transpose(input_, w, output_shape=output_shape, strides=[1, d_d, d_h, d_w, 1])
         except AttributeError:
-            print "This tensorflow version does not supprot tf.nn.conv3d_transpose."
+            print ("This tensorflow version does not supprot tf.nn.conv3d_transpose.")
 
         biases = tf.get_variable('biases', [output_shape[-1]], initializer=tf.constant_initializer(0.0))
         deconv = tf.nn.bias_add(deconv, biases)
@@ -325,7 +326,7 @@ def l2(a, b): return tf.reduce_mean(tf.pow(a-b, 2))
 def show_graph_operations():
     operations = [op.name for op in tf.get_default_graph().get_operations()]
     for o in operations:
-        print o
+        print(o)
 
 
 def load_flatten_imgbatch(img_paths):
