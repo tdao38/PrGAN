@@ -250,7 +250,7 @@ class PrGAN:
                         self.tau)
                 rendered_imgs.append(img)
 
-            self.final_imgs = tf.reshape(tf.pack(rendered_imgs), [self.batch_size, 64, 64, 1])
+            self.final_imgs = tf.reshape(tf.stack(rendered_imgs), [self.batch_size, 64, 64, 1])
         return self.final_imgs
 
     def sample (self, n_batches):
