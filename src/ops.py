@@ -5,6 +5,7 @@ import numpy as np
 import scipy.misc
 import sys
 import re
+from functools import reduce
 
 class BatchNormalization(object):
     def __init__(self, shape, name, decay=0.9, epsilon=1e-5):
@@ -61,7 +62,7 @@ def gather_nd(params, indices, name=None):
     rank = len(shape)
     flat_params = tf.reshape(params, [-1])
     multipliers = [reduce(lambda x, y: x*y, shape[i+1:], 1) for i in range(0, rank)]
-    indices_unpacked = tf.unpack(tf.transpose(indices, [rank - 1] + range(0, rank - 1), name))
+    indices_unpacked = tf.unstack(tf.transpose(indices, [rank - 1] + [x for x in range(0, rank - 1)], name))
     flat_indices = sum([a*b for a,b in zip(multipliers, indices_unpacked)])
     return tf.gather(flat_params, flat_indices, name=name)
 
@@ -72,7 +73,7 @@ def grid_coord(h, w, d):
     zl = tf.linspace(-1.0, 1.0, d)
 
     xs, ys, zs = tf.meshgrid(xl, yl, zl, indexing='ij')
-    g = tf.concat(0,[flatten(xs), flatten(ys), flatten(zs)])
+    g = tf.concat([flatten(xs), flatten(ys), flatten(zs)], 0)
     return g
 
 
@@ -83,7 +84,7 @@ def project(v, tau=1):
 
 
 def get_voxel_values(v, xs, ys, zs):
-    idxs = tf.cast(tf.pack([xs, ys, zs], axis=1), 'int32')
+    idxs = tf.cast(tf.stack([xs, ys, zs], axis=1), 'int32')
     idxs = tf.clip_by_value(idxs, 0, v.get_shape()[0])
     idxs = tf.expand_dims(idxs, 0)
     return gather_nd(v, idxs)
@@ -131,7 +132,7 @@ def transform_volume(v, t):
     ys = grid[1, :]
     zs = grid[2, :]
     
-    idxs_f = tf.transpose(tf.pack([xs, ys, zs]))
+    idxs_f = tf.transpose(tf.stack([xs, ys, zs]))
     idxs_f = tf.matmul(idxs_f, t)
     
     xs_t = (idxs_f[:, 0] + 1.0) * float(width) / 2.0
@@ -301,14 +302,14 @@ def deconv3d(input_, output_shape,
              name='deconv3d',
              with_w=False):
     with tf.variable_scope(name):
-        w = tf.get_variable('w', [k_d, k_h, k_w, output_shape[-1], input_.get_shape()[-1]],
+        w = tf.get_variable('w', [k_d, k_h, k_w, int(output_shape[-1]), input_.get_shape()[-1]],
                             initializer=tf.random_normal_initializer(stddev=stddev))
         try:
-            deconv = tf.nn.conv3d_transpose(input_, w, output_shape=output_shape, strides=[1, d_d, d_h, d_w, 1])
+            deconv = tf.nn.conv3d_transpose(input_, w, output_shape=tf.cast(output_shape, dtype=tf.int32), strides=[1, d_d, d_h, d_w, 1])
         except AttributeError:
             print ("This tensorflow version does not supprot tf.nn.conv3d_transpose.")
 
-        biases = tf.get_variable('biases', [output_shape[-1]], initializer=tf.constant_initializer(0.0))
+        biases = tf.get_variable('biases', int(output_shape[-1]), initializer=tf.constant_initializer(0.0))
         deconv = tf.nn.bias_add(deconv, biases)
 
         if with_w:
