@@ -5,6 +5,7 @@ import ops
 import glob
 import os
 import argparse
+tf.disable_v2_behavior()
 
 parser = argparse.ArgumentParser(description='This program trains a PrGAN model.')
 parser.add_argument("-e", "--epochs", type=int, help="Number training epochs.", default=50)
