@@ -24,7 +24,8 @@ class BatchNormalization(object):
 
     def ema_mean_variance(self, mean, variance):
         def with_update():
-            ema_apply = self.ema.apply([mean, variance])
+            with tf.variable_scope(tf.get_variable_scope(), reuse=tf.AUTO_REUSE):
+                ema_apply = self.ema.apply([mean, variance])
             with tf.control_dependencies([ema_apply]):
                 return tf.identity(mean), tf.identity(variance)
         return tf.cond(self.train, with_update, lambda: (self.ema.average(mean), self.ema.average(variance)))
