@@ -5,6 +5,7 @@ import ops
 import glob
 import os
 import argparse
+tf.disable_v2_behavior()
 
 parser = argparse.ArgumentParser(description='This program trains a PrGAN model.')
 parser.add_argument("-e", "--epochs", type=int, help="Number training epochs.", default=50)
@@ -28,7 +29,7 @@ def create_folder(path):
 
 class PrGAN:
 
-    def __init__(self, sess=tf.Session(), image_size=(32, 32), z_size=201,
+    def __init__(self, sess=tf.Session(), image_size=(64, 64), z_size=201,
                  n_iterations=50, dataset="None", batch_size=64, lrate=0.002, d_size=64):
 
         self.image_size = image_size
@@ -75,12 +76,12 @@ class PrGAN:
             self.D_real, self.D_real_logits, self.D_stats_real = self.discriminator(self.images, self.train_flag)
             self.D_fake, self.D_fake_logits, self.D_stats_fake = self.discriminator(self.G, self.train_flag, reuse=True)
 
-            self.D_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(self.D_real_logits,
-                                                                                      tf.ones_like(self.D_real)))
-            self.D_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(self.D_fake_logits,
-                                                                                      tf.zeros_like(self.D_fake)))
-            self.G_loss_classic = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(self.D_fake_logits,
-                                                                                 tf.ones_like(self.D_fake)))
+            self.D_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.D_real_logits,
+                                                                                      labels=tf.ones_like(self.D_real)))
+            self.D_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.D_fake_logits,
+                                                                                      labels=tf.zeros_like(self.D_fake)))
+            self.G_loss_classic = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=self.D_fake_logits,
+                                                                                 labels=tf.ones_like(self.D_fake)))
             dr_mean, dr_var = tf.nn.moments(self.D_stats_real, axes=[0])
             dl_mean, dl_var = tf.nn.moments(self.D_stats_fake, axes=[0])
             self.G_loss = ops.l2(dr_mean, dl_mean)
@@ -92,10 +93,13 @@ class PrGAN:
             allvars = tf.trainable_variables()
             self.D_vars = [v for v in allvars if 'd_' in v.name]
             self.G_vars = [v for v in allvars if 'g_' in v.name]
-
-            self.D_optim = tf.train.AdamOptimizer(1e-4, beta1=0.5).minimize(self.D_loss, var_list=self.D_vars)
-            self.G_optim = tf.train.AdamOptimizer(0.0025, beta1=0.5).minimize(self.G_loss, var_list=self.G_vars)
-            self.G_optim_classic = tf.train.AdamOptimizer(0.0025, beta1=0.5).minimize(self.G_loss_classic, var_list=self.G_vars)
+            
+            with tf.variable_scope('optimizer', reuse=tf.AUTO_REUSE):
+                self.D_optim = tf.train.AdamOptimizer(1e-4, beta1=0.5).minimize(self.D_loss, var_list=self.D_vars)
+            with tf.variable_scope('optimizer', reuse=tf.AUTO_REUSE):
+                self.G_optim = tf.train.AdamOptimizer(0.0025, beta1=0.5).minimize(self.G_loss, var_list=self.G_vars)
+            with tf.variable_scope('optimizer', reuse=tf.AUTO_REUSE):
+                self.G_optim_classic = tf.train.AdamOptimizer(0.0025, beta1=0.5).minimize(self.G_loss_classic, var_list=self.G_vars)
 
             self.saver = tf.train.Saver(write_version=tf.train.SaverDef.V2)
 
@@ -249,7 +253,7 @@ class PrGAN:
                         self.tau)
                 rendered_imgs.append(img)
 
-            self.final_imgs = tf.reshape(tf.pack(rendered_imgs), [self.batch_size, 64, 64, 1])
+            self.final_imgs = tf.reshape(tf.stack(rendered_imgs), [self.batch_size, 64, 64, 1])
         return self.final_imgs
 
     def sample (self, n_batches):
